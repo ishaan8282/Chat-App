@@ -15,11 +15,11 @@
                 </div>
             </div>
 
-            <!-- Polling Indicator Badge -->
+            <!-- Reverb WebSocket Status Badge -->
             <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full shadow-sm">
-                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    Short Polling (2s) &bull; Requests: <strong id="polling-count" class="text-gray-900 font-mono">0</strong>
+                <span id="connection-status" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-full shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    ⚡ Real-time: <strong class="font-semibold">Reverb WebSocket</strong> (0 Polling Requests)
                 </span>
             </div>
         </div>
@@ -60,7 +60,7 @@
                         <span class="text-xs text-gray-500">User ID: #{{ $recipient->id }}</span>
                     </div>
 
-                    <!-- Messages Scroll Container (WhatsApp style soft background) -->
+                    <!-- Messages Scroll Container -->
                     <div id="messages-container" class="flex-1 p-5 space-y-3 overflow-y-auto bg-slate-100">
                         <div class="py-6 text-xs text-center text-gray-500" id="empty-state">
                             Messages load ho rahe hain...
@@ -90,73 +90,26 @@
         </div>
     </div>
 
-    <!-- Polling JavaScript -->
+    <!-- Laravel Echo & Reverb JavaScript (ZERO POLLING) -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const messagesContainer = document.getElementById('messages-container');
             const chatForm = document.getElementById('chat-form');
             const messageInput = document.getElementById('message-input');
-            const pollingCountEl = document.getElementById('polling-count');
             const emptyState = document.getElementById('empty-state');
 
             const currentUserId = {{ Auth::id() }};
+            const recipientId = {{ $recipient->id }};
             const fetchUrl = "{{ route('chat.messages', $recipient) }}";
             const sendUrl = "{{ route('chat.send', $recipient) }}";
             const csrfToken = "{{ csrf_token() }}";
 
-            let requestCounter = 0;
-            let lastMessageIds = new Set();
+            let renderedMessageIds = new Set();
 
             function formatTime(isoString) {
                 if (!isoString) return '';
                 const date = new Date(isoString);
                 return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
-
-            function renderMessages(messages) {
-                if (!messages || messages.length === 0) {
-                    if (emptyState) {
-                        emptyState.textContent = 'Abhi koi message nahi hai. Pehla message bhejiye!';
-                    }
-                    return;
-                }
-
-                if (emptyState) {
-                    emptyState.remove();
-                }
-
-                let hasNewMessage = false;
-                messages.forEach(msg => {
-                    if (!lastMessageIds.has(msg.id)) {
-                        hasNewMessage = true;
-                        lastMessageIds.add(msg.id);
-
-                        const isMine = msg.sender_id === currentUserId;
-                        const messageDiv = document.createElement('div');
-                        messageDiv.className = `flex ${isMine ? 'justify-end' : 'justify-start'}`;
-
-                        // High contrast, clean styling:
-                        // - Mine (Sent): Soft green (WhatsApp style) with crisp dark text
-                        // - Other (Received): Crisp white bubble with border and dark text
-                        const bubbleClasses = isMine
-                            ? 'bg-emerald-100 text-gray-900 border border-emerald-300 rounded-2xl rounded-tr-none'
-                            : 'bg-white text-gray-900 border border-gray-300 rounded-2xl rounded-tl-none shadow-sm';
-
-                        messageDiv.innerHTML = `
-                            <div class="max-w-[75%] px-4 py-2.5 ${bubbleClasses}">
-                                <div class="text-sm text-gray-900 leading-relaxed font-normal break-words">${escapeHtml(msg.message)}</div>
-                                <div class="text-[11px] mt-1 text-right text-gray-500 font-medium">
-                                    ${formatTime(msg.created_at)}
-                                </div>
-                            </div>
-                        `;
-                        messagesContainer.appendChild(messageDiv);
-                    }
-                });
-
-                if (hasNewMessage) {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
             }
 
             function escapeHtml(text) {
@@ -165,13 +118,40 @@
                 return div.innerHTML;
             }
 
-            // 1. Fetch Messages via Short Polling
-            async function fetchMessages() {
-                requestCounter++;
-                if (pollingCountEl) {
-                    pollingCountEl.textContent = requestCounter;
+            function appendSingleMessage(msg) {
+                if (!msg || !msg.id || renderedMessageIds.has(msg.id)) {
+                    return;
                 }
 
+                renderedMessageIds.add(msg.id);
+
+                if (emptyState && emptyState.parentNode) {
+                    emptyState.remove();
+                }
+
+                const isMine = msg.sender_id === currentUserId;
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `flex ${isMine ? 'justify-end' : 'justify-start'}`;
+
+                const bubbleClasses = isMine
+                    ? 'bg-emerald-100 text-gray-900 border border-emerald-300 rounded-2xl rounded-tr-none'
+                    : 'bg-white text-gray-900 border border-gray-300 rounded-2xl rounded-tl-none shadow-sm';
+
+                messageDiv.innerHTML = `
+                    <div class="max-w-[75%] px-4 py-2.5 ${bubbleClasses}">
+                        <div class="text-sm font-normal leading-relaxed text-gray-900 break-words">${escapeHtml(msg.message)}</div>
+                        <div class="text-[11px] mt-1 text-right text-gray-500 font-medium">
+                            ${formatTime(msg.created_at)}
+                        </div>
+                    </div>
+                `;
+
+                messagesContainer.appendChild(messageDiv);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            // 1. Initial Load: DB se purani chat history ek baar fetch karte hain
+            async function loadChatHistory() {
                 try {
                     const response = await fetch(fetchUrl, {
                         headers: {
@@ -182,10 +162,14 @@
 
                     if (response.ok) {
                         const messages = await response.json();
-                        renderMessages(messages);
+                        if (messages.length === 0 && emptyState) {
+                            emptyState.textContent = 'Abhi koi message nahi hai. Pehla message bhejiye!';
+                        } else {
+                            messages.forEach(msg => appendSingleMessage(msg));
+                        }
                     }
                 } catch (error) {
-                    console.error('Polling error:', error);
+                    console.error('History load error:', error);
                 }
             }
 
@@ -211,7 +195,9 @@
                     });
 
                     if (response.ok) {
-                        await fetchMessages();
+                        const savedMessage = await response.json();
+                        // Sender ki screen par turant message append karo
+                        appendSingleMessage(savedMessage);
                     } else {
                         alert('Message bhejne mein error aaya.');
                     }
@@ -220,11 +206,24 @@
                 }
             });
 
-            // Pehla fetch
-            fetchMessages();
+            // 3. Pehli baar history load karo
+            loadChatHistory();
 
-            // Har 2 second mein polling
-            setInterval(fetchMessages, 2000);
+            // 4. THE MAGIC: Laravel Echo + Reverb WebSocket Listener (NO POLLING!)
+            if (window.Echo) {
+                console.log(`Subscribing to Reverb channel: chat.${currentUserId}`);
+
+                window.Echo.channel(`chat.${currentUserId}`)
+                    .listen('MessageSent', (event) => {
+                        console.log('⚡ Real-time message arrived via Reverb:', event);
+                        // Agar message usi user se aaya hai jisse abhi baat chal rahi hai:
+                        if (event.sender_id === recipientId) {
+                            appendSingleMessage(event);
+                        }
+                    });
+            } else {
+                console.warn('Laravel Echo is not initialized on window!');
+            }
         });
     </script>
 </x-app-layout>
