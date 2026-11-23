@@ -1,38 +1,48 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <div>
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Chat with {{ $recipient->name }}
-                </h2>
-                <p class="text-xs text-amber-600 font-medium mt-1">
-                    ⚡ Real-time Mode: <span class="font-bold underline">Short Polling (fetch every 2s)</span>
-                </p>
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-10 h-10 text-base font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    {{ strtoupper(substr($recipient->name, 0, 1)) }}
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">
+                        {{ $recipient->name }}
+                    </h2>
+                    <p class="text-xs text-gray-500 font-medium">
+                        {{ $recipient->email }} &bull; <span class="text-emerald-700 font-semibold">Active Chat</span>
+                    </p>
+                </div>
             </div>
+
+            <!-- Polling Indicator Badge -->
             <div class="flex items-center gap-2">
-                <span class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full font-mono">
-                    Requests: <span id="polling-count">0</span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-full shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    Short Polling (2s) &bull; Requests: <strong id="polling-count" class="text-gray-900 font-mono">0</strong>
                 </span>
             </div>
         </div>
     </x-slot>
 
     <div class="py-6">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
                 <!-- User Contacts Sidebar -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-4">
-                    <h3 class="font-bold text-gray-700 text-sm mb-3 uppercase tracking-wider">Contacts</h3>
-                    <div class="space-y-2">
+                <div class="p-4 bg-white border border-gray-200 shadow-sm rounded-xl flex flex-col h-[650px]">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold tracking-wider text-gray-500 uppercase">Contacts ({{ count($users) }})</h3>
+                    </div>
+                    <div class="space-y-1 overflow-y-auto flex-1 pr-1">
                         @foreach ($users as $user)
                             <a href="{{ route('chat.show', $user) }}"
-                               class="flex items-center gap-3 p-3 rounded-lg transition {{ $user->id === $recipient->id ? 'bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold' : 'hover:bg-gray-50 text-gray-700' }}">
-                                <div class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+                               class="flex items-center gap-3 p-2.5 rounded-lg transition {{ $user->id === $recipient->id ? 'bg-emerald-50 border border-emerald-300 text-gray-900 font-semibold' : 'hover:bg-gray-100 text-gray-700' }}">
+                                <div class="flex items-center justify-center w-9 h-9 text-sm font-bold rounded-full bg-gray-200 text-gray-800">
                                     {{ strtoupper(substr($user->name, 0, 1)) }}
                                 </div>
                                 <div class="truncate">
-                                    <div class="text-sm font-medium">{{ $user->name }}</div>
-                                    <div class="text-xs text-gray-400 truncate">{{ $user->email }}</div>
+                                    <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
+                                    <div class="text-xs text-gray-500 truncate">{{ $user->email }}</div>
                                 </div>
                             </a>
                         @endforeach
@@ -40,41 +50,37 @@
                 </div>
 
                 <!-- Chat Messages & Input Panel -->
-                <div class="md:col-span-3 bg-white overflow-hidden shadow-sm sm:rounded-lg flex flex-col h-[650px]">
-                    <!-- Chat Header -->
-                    <div class="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">
-                                {{ strtoupper(substr($recipient->name, 0, 1)) }}
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-gray-800 text-sm">{{ $recipient->name }}</h4>
-                                <span class="text-xs text-gray-500">ID: {{ $recipient->id }} ({{ $recipient->email }})</span>
-                            </div>
+                <div class="md:col-span-3 bg-white border border-gray-200 shadow-sm rounded-xl flex flex-col h-[650px] overflow-hidden">
+                    <!-- Chat Header Bar -->
+                    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-gray-50">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conversation with</span>
+                            <span class="text-sm font-bold text-gray-900">{{ $recipient->name }}</span>
                         </div>
+                        <span class="text-xs text-gray-500">User ID: #{{ $recipient->id }}</span>
                     </div>
 
-                    <!-- Messages Scroll Container -->
-                    <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
-                        <div class="text-center text-xs text-gray-400 py-4" id="empty-state">
+                    <!-- Messages Scroll Container (WhatsApp style soft background) -->
+                    <div id="messages-container" class="flex-1 p-5 space-y-3 overflow-y-auto bg-slate-100">
+                        <div class="py-6 text-xs text-center text-gray-500" id="empty-state">
                             Messages load ho rahe hain...
                         </div>
                     </div>
 
                     <!-- Chat Input Form -->
-                    <form id="chat-form" class="p-4 border-t border-gray-100 bg-white flex items-center gap-3">
+                    <form id="chat-form" class="flex items-center gap-3 p-4 bg-white border-t border-gray-200">
                         <input type="text"
                                id="message-input"
                                name="message"
-                               placeholder="Type your message here... (e.g. Hello Bruno!)"
+                               placeholder="Type your message here... (e.g. Hi Bruno!)"
                                required
                                autocomplete="off"
-                               class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm py-2 px-3">
+                               class="flex-1 px-4 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg shadow-inner focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none">
                         <button type="submit"
                                 id="send-btn"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg shadow-sm transition">
+                                class="inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-white transition bg-emerald-600 rounded-lg shadow hover:bg-emerald-700 active:bg-emerald-800 focus:outline-none">
                             <span>Send</span>
-                            <svg class="ml-2 w-4 h-4 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 ml-2 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                             </svg>
                         </button>
@@ -119,7 +125,6 @@
                     emptyState.remove();
                 }
 
-                // Check agar koi naya message aaya hai
                 let hasNewMessage = false;
                 messages.forEach(msg => {
                     if (!lastMessageIds.has(msg.id)) {
@@ -130,14 +135,17 @@
                         const messageDiv = document.createElement('div');
                         messageDiv.className = `flex ${isMine ? 'justify-end' : 'justify-start'}`;
 
+                        // High contrast, clean styling:
+                        // - Mine (Sent): Soft green (WhatsApp style) with crisp dark text
+                        // - Other (Received): Crisp white bubble with border and dark text
+                        const bubbleClasses = isMine
+                            ? 'bg-emerald-100 text-gray-900 border border-emerald-300 rounded-2xl rounded-tr-none'
+                            : 'bg-white text-gray-900 border border-gray-300 rounded-2xl rounded-tl-none shadow-sm';
+
                         messageDiv.innerHTML = `
-                            <div class="max-w-[75%] rounded-2xl px-4 py-2 shadow-sm text-sm ${
-                                isMine 
-                                    ? 'bg-indigo-600 text-white rounded-br-none' 
-                                    : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
-                            }">
-                                <div class="break-words leading-relaxed">${escapeHtml(msg.message)}</div>
-                                <div class="text-[10px] mt-1 text-right ${isMine ? 'text-indigo-200' : 'text-gray-400'}">
+                            <div class="max-w-[75%] px-4 py-2.5 ${bubbleClasses}">
+                                <div class="text-sm text-gray-900 leading-relaxed font-normal break-words">${escapeHtml(msg.message)}</div>
+                                <div class="text-[11px] mt-1 text-right text-gray-500 font-medium">
                                     ${formatTime(msg.created_at)}
                                 </div>
                             </div>
@@ -160,7 +168,9 @@
             // 1. Fetch Messages via Short Polling
             async function fetchMessages() {
                 requestCounter++;
-                pollingCountEl.textContent = requestCounter;
+                if (pollingCountEl) {
+                    pollingCountEl.textContent = requestCounter;
+                }
 
                 try {
                     const response = await fetch(fetchUrl, {
@@ -201,7 +211,6 @@
                     });
 
                     if (response.ok) {
-                        // Immediately poll taaki bheja hua message turant screen par aa jaye
                         await fetchMessages();
                     } else {
                         alert('Message bhejne mein error aaya.');
@@ -211,10 +220,10 @@
                 }
             });
 
-            // Pehli baar turant fetch karo
+            // Pehla fetch
             fetchMessages();
 
-            // HAR 2 SECOND MEIN POLL KARO (The Heart of Milestone 1)
+            // Har 2 second mein polling
             setInterval(fetchMessages, 2000);
         });
     </script>
