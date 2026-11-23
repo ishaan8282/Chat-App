@@ -2,15 +2,15 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="flex items-center justify-center w-10 h-10 text-base font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <div class="flex items-center justify-center w-10 h-10 text-base font-bold border rounded-full bg-emerald-100 text-emerald-800 border-emerald-300">
                     {{ strtoupper(substr($recipient->name, 0, 1)) }}
                 </div>
                 <div>
                     <h2 class="text-lg font-bold text-gray-900">
                         {{ $recipient->name }}
                     </h2>
-                    <p class="text-xs text-gray-500 font-medium">
-                        {{ $recipient->email }} &bull; <span class="text-emerald-700 font-semibold">Active Chat</span>
+                    <p class="text-xs font-medium text-gray-500">
+                        {{ $recipient->email }} &bull; <span class="font-semibold text-emerald-700">Active Chat</span>
                     </p>
                 </div>
             </div>
@@ -33,11 +33,11 @@
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="text-xs font-bold tracking-wider text-gray-500 uppercase">Contacts ({{ count($users) }})</h3>
                     </div>
-                    <div class="space-y-1 overflow-y-auto flex-1 pr-1">
+                    <div class="flex-1 pr-1 space-y-1 overflow-y-auto">
                         @foreach ($users as $user)
                             <a href="{{ route('chat.show', $user) }}"
                                class="flex items-center gap-3 p-2.5 rounded-lg transition {{ $user->id === $recipient->id ? 'bg-emerald-50 border border-emerald-300 text-gray-900 font-semibold' : 'hover:bg-gray-100 text-gray-700' }}">
-                                <div class="flex items-center justify-center w-9 h-9 text-sm font-bold rounded-full bg-gray-200 text-gray-800">
+                                <div class="flex items-center justify-center text-sm font-bold text-gray-800 bg-gray-200 rounded-full w-9 h-9">
                                     {{ strtoupper(substr($user->name, 0, 1)) }}
                                 </div>
                                 <div class="truncate">
@@ -54,7 +54,7 @@
                     <!-- Chat Header Bar -->
                     <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 bg-gray-50">
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Conversation with</span>
+                            <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">Conversation with</span>
                             <span class="text-sm font-bold text-gray-900">{{ $recipient->name }}</span>
                         </div>
                         <span class="text-xs text-gray-500">User ID: #{{ $recipient->id }}</span>
@@ -163,7 +163,7 @@
                     if (response.ok) {
                         const messages = await response.json();
                         if (messages.length === 0 && emptyState) {
-                            emptyState.textContent = 'Abhi koi message nahi hai. Pehla message bhejiye!';
+                            emptyState.textContent = 'No messages yet. Start the conversation!';
                         } else {
                             messages.forEach(msg => appendSingleMessage(msg));
                         }
